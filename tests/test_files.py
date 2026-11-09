@@ -182,6 +182,19 @@ def test_files_need_a_login_and_a_valid_link(engine, tmp_path):
     assert panel.client.get(url, follow_redirects=False).status_code == 303
 
 
+def test_links_only_work_for_whoever_they_were_made_for(engine, tmp_path):
+    panel = mount(engine, tmp_path)
+    panel.login()
+    add_doc(panel)
+    url = file_links(panel.get("/doc").text)[0]
+    other = mount(engine, tmp_path)
+    other.login("viewer")
+    assert other.get("/doc").status_code == 403
+    response = other.client.get(url)
+    assert response.status_code == 404 and response.content != PNG
+    assert panel.client.get(url).content == PNG
+
+
 def test_links_cant_reach_outside_the_folder(engine, tmp_path):
     (tmp_path.parent / "secret.txt").write_text("secret")
     site = AdminSite(storage=LocalStorage(tmp_path))
@@ -190,7 +203,7 @@ def test_links_cant_reach_outside_the_folder(engine, tmp_path):
     site.mount(app, engine=engine, auth=ModelAuth(User, superuser_field="is_superuser"), secret_key=SECRET)
     panel = Panel(TestClient(app), engine)
     panel.login()
-    token = site.file_signer.dumps({"name": "../secret.txt", "exp": 9_999_999_999})
+    token = site.file_signer.dumps({"name": "../secret.txt", "uid": "1", "exp": 9_999_999_999})
     assert panel.get(f"/files/{token}").status_code == 404
 
 
