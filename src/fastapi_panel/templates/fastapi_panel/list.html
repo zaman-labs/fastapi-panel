@@ -11,6 +11,14 @@
   </div>
 </div>
 
+{% if admin.live_updates and not trash %}
+<div class="message message-info" role="status" hidden
+  data-live-updates="{{ admin.live_updates }}" data-count-url="{{ list_url }}/count" data-total="{{ total }}"
+  data-name="{{ admin.name.lower() }}" data-name-plural="{{ admin.name_plural.lower() }}">
+  <span data-live-text></span> <a href="">Refresh</a>
+</div>
+{% endif %}
+
 <div class="changelist{% if filters %} has-filters{% endif %}">
   <div class="changelist-main">
     {% if admin.search_fields %}

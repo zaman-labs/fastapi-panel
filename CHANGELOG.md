@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- `live_updates = <seconds>` on a `ModelAdmin` makes its list page check for new rows and show "3 new orders. Refresh". It catches rows written by other services too, since it asks the database
 ### Security
 
 - File links only work for the staff member they were made for. Before, anyone logged in to the panel could open a link they got hold of, even for a record they couldn't see. Links made before upgrading stop working

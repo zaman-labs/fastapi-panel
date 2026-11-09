@@ -5,7 +5,7 @@ import re
 
 import httpx
 import pytest
-from conftest import Item, Natural, Note, Owner
+from conftest import Item, ItemAdmin, Natural, Note, Owner
 from fastapi import FastAPI
 from sqlalchemy import create_engine, select
 
@@ -297,6 +297,39 @@ def test_unknown_model_is_404(panel):
 def test_autocomplete_searches(panel):
     data = panel.get("/owner/autocomplete?q=ali").json()
     assert [r["text"] for r in data["results"]] == ["Alice"]
+
+
+def test_count_follows_list_filters_and_sees_new_rows(panel, db):
+    assert panel.get("/item/count").json() == {"total": 7}
+    assert panel.get("/item/count?q=item1&page=3&o=-name").json() == {"total": 1}
+    db.add(Item(name="from another service", price=1))
+    db.commit()
+    assert panel.get("/item/count").json() == {"total": 8}
+
+
+def test_count_needs_view_permission(anon):
+    anon.login("viewer")
+    assert anon.get("/item/count").status_code == 200
+    assert anon.get("/owner/count").status_code == 403
+
+
+def test_live_updates_notice_only_when_switched_on(panel, monkeypatch):
+    assert "data-live-updates" not in panel.get("/item").text
+    monkeypatch.setattr(ItemAdmin, "live_updates", 10)
+    page = panel.get("/item").text
+    assert 'data-live-updates="10"' in page and 'data-total="7"' in page
+
+
+@pytest.mark.parametrize("value", [0, -5, 1.5, True])
+def test_bad_live_updates_fails_on_boot(value):
+    site = AdminSite()
+
+    class Broken(ModelAdmin):
+        live_updates = value
+
+    site.register(Item, Broken)
+    with pytest.raises(ImproperlyConfigured):
+        site.mount(FastAPI(), engine=_memory_engine(), auth=StaticAuth({}), secret_key="x" * 40)
 
 
 def test_credentials_are_not_exposed_by_default(panel):

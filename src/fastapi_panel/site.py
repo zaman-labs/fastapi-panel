@@ -291,6 +291,7 @@ class AdminSite:
             self._route("/{slug}", self._model_view(views.changelist), methods=["GET", "POST"]),
             self._route("/{slug}/add", self._model_view(views.change_form), methods=["GET", "POST"]),
             self._route("/{slug}/autocomplete", self._model_view(views.autocomplete)),
+            self._route("/{slug}/count", self._model_view(views.row_count)),
             self._route("/{slug}/deleted", self._model_view(views.trash), methods=["GET", "POST"]),
             self._route("/{slug}/filters", self._model_view(views.save_filter), methods=["POST"]),
             self._route("/{slug}/import", self._model_view(imports.import_view), methods=["GET", "POST"]),

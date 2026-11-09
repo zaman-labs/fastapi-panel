@@ -405,6 +405,8 @@ class ModelAdmin(FormOptions):
     ordering: Iterable[str] = ()
     date_hierarchy: str | None = None
     show_full_result_count = True
+    # Seconds between checks for new rows while the list is open. None turns it off.
+    live_updates: int | None = None
 
     # Actions
     actions: Iterable[Any] = ()
@@ -731,6 +733,9 @@ class ModelAdmin(FormOptions):
             attrs = inspect(self.model).attrs
         except NoInspectionAvailable:
             raise ImproperlyConfigured(f"{self.model!r} is not a SQLAlchemy mapped class") from None
+
+        if self.live_updates is not None and (type(self.live_updates) is not int or self.live_updates < 1):
+            fail("live_updates", self.live_updates)
 
         def known(name: Any) -> bool:
             return (

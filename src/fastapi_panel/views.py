@@ -1047,6 +1047,12 @@ def history_view(session: Any, request: Any, admin: ModelAdmin, pk: str) -> Resp
     )
 
 
+def row_count(session: Any, request: Any, admin: ModelAdmin) -> Response:
+    """The list page's total under the same filters, polled by `live_updates`."""
+    admin.require(admin.has_view_permission(request))
+    return JSONResponse({"total": _count(session, _filtered_statement(request, admin))})
+
+
 def autocomplete(session: Any, request: Any, admin: ModelAdmin) -> Response:
     admin.require(admin.has_view_permission(request))
     stmt = admin.get_queryset(request)
