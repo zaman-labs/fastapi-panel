@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -383,3 +384,84 @@ def test_password_helpers():
 
 def _memory_engine():
     return create_engine("sqlite://")
+
+
+def _loaded(html: str) -> str:
+    return re.search(r'name="_loaded" value="([^"]+)"', html).group(1)
+
+
+def test_save_refuses_to_overwrite_a_change_made_meanwhile(panel, db):
+    item = db.scalar(select(Item).where(Item.name == "item0"))
+    form = {"name": "item0", "price": "5.00", "status": "DRAFT", "active": "on", "note-TOTAL": "0"}
+    loaded = _loaded(panel.get(f"/item/{item.id}/change").text)
+    item.price = Decimal("77.00")  # another staff member or service saves first
+    db.commit()
+
+    page = panel.post(f"/item/{item.id}/change", {**form, "_loaded": loaded})
+    assert page.status_code == 200 and "Someone else changed this item" in page.text
+    db.expire_all()
+    assert str(db.get(Item, item.id).price) == "77.00"
+
+    # The page now carries the new state, so saving again is a deliberate overwrite.
+    again = panel.post(f"/item/{item.id}/change", {**form, "_loaded": _loaded(page.text)})
+    assert again.status_code == 303
+    db.expire_all()
+    assert str(db.get(Item, item.id).price) == "5.00"
+
+
+def test_unchanged_record_saves_with_its_fingerprint(panel, db):
+    item = db.scalar(select(Item).where(Item.name == "item1"))
+    loaded = _loaded(panel.get(f"/item/{item.id}/change").text)
+    form = {"name": "item1", "price": "3.00", "status": "DRAFT", "note-TOTAL": "0", "_loaded": loaded}
+    assert panel.post(f"/item/{item.id}/change", form).status_code == 303
+
+
+def _bulk(ids, **data):
+    return {"action": "edit_selected", "_selected": [str(i) for i in ids], **data}
+
+
+def test_edit_selected_changes_only_ticked_fields_and_logs_each(panel, db):
+    items = list(db.scalars(select(Item).where(Item.name.in_(["item0", "item1"]))))
+    ids = [item.id for item in items]
+    names_before = {item.id: item.name for item in items}
+    page = panel.post("/item", _bulk(ids))
+    assert page.status_code == 200 and "Edit 2 items" in page.text and 'name="bulk-price"' in page.text
+
+    done = panel.post("/item", _bulk(ids, _confirm="1", _change="price", **{"bulk-price": "9.50", "bulk-name": "x"}))
+    assert done.status_code == 303
+    db.expire_all()
+    for item_id in ids:
+        item = db.get(Item, item_id)
+        assert str(item.price) == "9.50" and item.name == names_before[item_id]
+    logged = db.scalars(select(AdminLog).where(AdminLog.action == "change", AdminLog.object_id.in_(map(str, ids))))
+    assert len(list(logged)) == 2
+
+
+def test_edit_selected_saves_nothing_when_a_row_fails(panel, db):
+    ids = [item.id for item in db.scalars(select(Item).where(Item.name.in_(["item2", "item3"])))]
+    bad = panel.post("/item", _bulk(ids, _confirm="1", _change="price", **{"bulk-price": "oops"}))
+    assert bad.status_code == 200 and "Nothing was changed" in bad.text and "Enter a number." in bad.text
+    untouched = panel.post("/item", _bulk(ids, _confirm="1", **{"bulk-price": "1"}))
+    assert "Tick at least one field" in untouched.text
+    # Two rows can't share a unique name; the database refuses and the whole batch rolls back.
+    clash = panel.post("/item", _bulk(ids, _confirm="1", _change="name", **{"bulk-name": "same"}))
+    assert clash.status_code == 303
+    db.expire_all()
+    assert {db.get(Item, i).name for i in ids} == {"item2", "item3"}
+
+
+def test_edit_selected_needs_change_permission(anon, db):
+    anon.login("viewer")
+    item = db.scalar(select(Item).where(Item.name == "item4"))
+    anon.post("/item", _bulk([item.id], _confirm="1", _change="price", **{"bulk-price": "99"}))
+    db.expire_all()
+    assert str(db.get(Item, item.id).price) == "5.00"
+
+
+def test_query_timeout_needs_postgres_and_a_positive_number():
+    for value in (0.5, 0, -1, "5"):
+        site = AdminSite()
+        with pytest.raises(ImproperlyConfigured):
+            site.mount(
+                FastAPI(), engine=_memory_engine(), auth=StaticAuth({}), secret_key="x" * 40, query_timeout=value
+            )

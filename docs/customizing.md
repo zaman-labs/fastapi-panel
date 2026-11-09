@@ -79,6 +79,7 @@ Settings for `mount`:
 | `max_body_size` | 10 MB | Largest POST body accepted |
 | `password_reset` | `None` | A function that delivers reset links, see [Password reset](auth-and-permissions.md#password-reset) |
 | `public_url` | `None` | The panel's public address, required with `password_reset` |
+| `query_timeout` | `None` | Seconds a panel query may run before PostgreSQL cancels it, so a heavy filter or search can't hold up the database your app shares. The page then says it took too long. PostgreSQL only; it applies to the panel's own transactions and nothing else |
 
 ## Live settings
 

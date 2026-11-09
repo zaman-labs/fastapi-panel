@@ -1,0 +1,23 @@
+{% extends "fastapi_panel/base.html" %}
+{% from "fastapi_panel/widgets.html" import form_row %}
+{% block content %}
+<h1 class="page-title">{{ title }}</h1>
+<div class="card card-padded">
+  <form method="post" action="{{ post_url }}" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% for name, value in hidden %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    {% for error in form.errors %}<div class="message message-error" role="alert">{{ error }}</div>{% endfor %}
+    <p class="muted">Tick the fields to change. The rest keep their current values on every {{ admin.name.lower() }}.</p>
+    {% for field in form.fields %}
+    <div class="bulk-field">
+      <label class="bulk-toggle"><input type="checkbox" name="_change" value="{{ field.name }}"{% if field.name in chosen %} checked{% endif %}> Change {{ field.label.lower() }}</label>
+      {{ form_row(field) }}
+    </div>
+    {% endfor %}
+    <div class="submit-row">
+      <button class="button button-primary" type="submit">Apply to {{ count }} {{ word }}</button>
+      <a class="button" href="{{ cancel_url }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

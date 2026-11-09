@@ -36,6 +36,11 @@ MAX_ACTIVITY_USERS = 200
 MAX_SAVED_FILTERS = 50
 MAX_FILTER_QUERY = 2000
 DB_ERROR = "This couldn't be saved because it conflicts with existing data or a database constraint."
+BULK_PREFIX = "bulk-"
+EDIT_CONFLICT = (
+    "Someone else changed this {name} after you opened it, so nothing was saved. "
+    "Saving again replaces their changes with what you see below."
+)
 
 
 def redirect(url: str) -> RedirectResponse:
@@ -481,14 +486,7 @@ def _save_list_editable(session: Any, request: Any, admin: ModelAdmin) -> Respon
     saved = 0
     try:
         for form in forms.values():
-            changed = form.apply(form.obj)
-            if changed:
-                admin.save_model(session, request, form.obj, True)
-                session.flush()
-                values = admin.logged_values(form)
-                message = ", ".join(changed) + (f". {values}" if values else "")
-                record(session, request, admin, form.obj, "change", message)
-                saved += 1
+            saved += _save_changes(session, request, admin, form)
         session.commit()
     except DBAPIError:
         session.rollback()
@@ -496,6 +494,18 @@ def _save_list_editable(session: Any, request: Any, admin: ModelAdmin) -> Respon
         return redirect(back)
     admin.message_user(request, f"{saved} {admin.name_plural.lower() if saved != 1 else admin.name.lower()} updated.")
     return redirect(back)
+
+
+def _save_changes(session: Any, request: Any, admin: ModelAdmin, form: Form) -> bool:
+    """Writes a validated form over its record and logs it. False when nothing changed."""
+    changed = form.apply(form.obj)
+    if not changed:
+        return False
+    admin.save_model(session, request, form.obj, True)
+    session.flush()
+    values = admin.logged_values(form)
+    record(session, request, admin, form.obj, "change", ", ".join(changed) + (f". {values}" if values else ""))
+    return True
 
 
 class FormSet:
@@ -633,6 +643,9 @@ def change_form(session: Any, request: Any, admin: ModelAdmin, pk: str | None = 
     ]
 
     if data is not None:
+        # Pages from before this check send no fingerprint, so they save as they always did.
+        if not creating and data.get("_loaded", form.fingerprint) != form.fingerprint:
+            form.errors.append(EDIT_CONFLICT.format(name=admin.name.lower()))
         admin.validate_form(session, form, data)
         for formset in formsets:
             formset.validate(data)
@@ -997,6 +1010,70 @@ def delete_selected(session: Any, request: Any, admin: ModelAdmin, objects: list
             "hidden": hidden,
         },
     )
+
+
+def edit_selected(session: Any, request: Any, admin: ModelAdmin, objects: list[Any]) -> Response | None:
+    """Sets the ticked fields to one value on every selected record, through the same checks as the form."""
+    admin.require(all(admin.has_change_permission(request, obj) for obj in objects))
+    data = request.state.form
+    names = admin.get_bulk_edit_fields(request)
+    chosen = [name for name in data.getlist("_change") if name in names]
+    # Prefixed, so a column called "action" can't clash with the action picker.
+    page_form = admin.build_form(session, request, admin.model(), persisted=False, names=names, prefix=BULK_PREFIX)
+    word = (admin.name if len(objects) == 1 else admin.name_plural).lower()
+    if data.get("_confirm") == "1":
+        for field in page_form.editable:
+            field.value = field.extract(data)
+        if not chosen:
+            page_form.errors.append("Tick at least one field to change.")
+        else:
+            forms = [
+                admin.build_form(session, request, obj, persisted=True, names=chosen, prefix=BULK_PREFIX)
+                for obj in objects
+            ]
+            for form in forms:
+                admin.validate_form(session, form, data)
+            failed = [form for form in forms if not form.is_valid]
+            if not failed:
+                saved = 0
+                for form in forms:
+                    saved += _save_changes(session, request, admin, form)
+                admin.message_user(request, f"Updated {saved} of {len(objects)} {word}.")
+                return None
+            _show_first_failure(page_form, failed)
+    back = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    hidden = [("action", "edit_selected"), ("_confirm", "1")]
+    if data.get("select_across") == "1":
+        hidden.append(("select_across", "1"))
+    else:
+        hidden += [("_selected", pk_string(obj)) for obj in objects]
+    return admin.site.render(
+        request,
+        "fastapi_panel/bulk_edit.html",
+        {
+            "admin": admin,
+            "title": f"Edit {len(objects)} {word}",
+            "crumbs": _crumbs(request, admin, ("Edit selected", None)),
+            "form": page_form,
+            "chosen": chosen,
+            "count": len(objects),
+            "word": word,
+            "cancel_url": back,
+            "post_url": back,
+            "hidden": hidden,
+        },
+    )
+
+
+def _show_first_failure(page_form: Form, failed: list[Form]) -> None:
+    first = failed[0]
+    by_name = {field.name: field for field in page_form.fields}
+    for field in first.fields:
+        if field.errors and field.name in by_name:
+            by_name[field.name].errors = list(field.errors)
+    label = object_label(first.obj)
+    summary = f"Nothing was changed. {len(failed)} of the selected can't take these values, like “{label}”."
+    page_form.errors = [summary, *first.errors]
 
 
 def object_action(session: Any, request: Any, admin: ModelAdmin, pk: str) -> Response:

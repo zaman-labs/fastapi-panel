@@ -32,7 +32,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from . import __version__, imports, two_factor, views
-from .db import Database
+from .db import Database, is_query_timeout
 from .groups import StaffGroupAdmin
 from .log import SETTINGS_SLUG, AdminLog, LiveSetting, SavedFilter, StaffGroup, StaffGroupMember, TwoFactorDevice
 from .log import Base as PanelBase
@@ -62,6 +62,7 @@ FILE_CSP = "default-src 'none'; sandbox"
 MIN_SECRET_LENGTH = 32
 MAX_PASSWORD_LENGTH = 4096
 MAX_FORM_FIELDS = 20_000
+QUERY_TIMEOUT = "This page took too long to load. Narrow it down with filters or a more specific search."
 
 
 class AdminSite:
@@ -225,6 +226,7 @@ class AdminSite:
         password_reset: Callable[[Any, str], Any] | None = None,
         public_url: str | None = None,
         two_factor: bool = False,
+        query_timeout: float | None = None,
     ) -> None:
         if len(secret_key) < MIN_SECRET_LENGTH:
             raise ValueError(
@@ -236,7 +238,7 @@ class AdminSite:
             raise ValueError('password_reset needs public_url, the panel\'s address: "https://example.com/admin"')
         self.password_reset = password_reset if auth.can_change_password else None
         self.public_url = (public_url or "").rstrip("/")
-        self.db = Database(engine)
+        self.db = Database(engine, query_timeout)
         self.auth = auth
         self.cookie_name = session_cookie_name(secret_key)
         self.signer = Signer(secret_key)
@@ -346,6 +348,10 @@ class AdminSite:
                 response = await view(request)
             else:
                 response = await self.db.run(view, request)
+        except DBAPIError as exc:
+            if not is_query_timeout(exc):
+                raise
+            response = self._error_page(request, 503, QUERY_TIMEOUT)
         except HTTPException as exc:
             response = self._error_page(request, exc.status_code, exc.detail)
         finally:

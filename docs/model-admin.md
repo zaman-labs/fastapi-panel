@@ -65,6 +65,8 @@ Values are escaped. Return `Markup` only for HTML you built yourself, and use `M
 | `save_as` | `False` | Adds "Save as new" |
 | `save_on_top` | `False` | Repeats the buttons above the form |
 
+If someone else changes a record's form fields while you have it open, whether in the panel or from another service, saving stops and says so instead of silently overwriting their change. Saving again replaces it on purpose. Inlines and `list_editable` aren't checked.
+
 ```python
 fieldsets = (
     (None, {"fields": ("name", "slug")}),
@@ -241,7 +243,11 @@ class ProductAdmin(ModelAdmin):
         self.message_user(request, f"Published {len(objects)} products.")
 ```
 
-The panel commits for you. Return a `Response` to send something else back, such as a file. `delete_selected` and `export_csv` are included. Change that with `builtin_actions = ()`, choose the exported columns with `export_fields`, and adjust the limit with `action_max_rows` (10,000 by default).
+The panel commits for you. Return a `Response` to send something else back, such as a file. `edit_selected`, `delete_selected` and `export_csv` are included. Change that with `builtin_actions = ()`, choose the exported columns with `export_fields`, and adjust the limit with `action_max_rows` (10,000 by default).
+
+### Editing many records at once
+
+**Edit selected** sets the fields you tick to one value on every selected record. Each record goes through the same checks as its form, including `clean` and the per-row permission check, and gets its own history entry. If any record fails, nothing is saved. Passwords and files aren't offered; narrow the list with `get_bulk_edit_fields(request)`.
 
 ### Buttons on one record
 
