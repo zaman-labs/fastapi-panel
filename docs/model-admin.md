@@ -16,6 +16,7 @@ Subclass `ModelAdmin` and set what you need. Everything has a default.
 | `ordering` | primary key, newest first | Default sort: `("-created_at", "name")` |
 | `date_hierarchy` | `None` | A date column for year, month and day drill-down |
 | `show_full_result_count` | `True` | Run a second count for "3 of 1,000". Turn off on huge tables |
+| `live_updates` | `None` | Seconds between checks for new rows. The list then shows "3 new orders. Refresh", which catches rows other services write too. Each open list runs one count with its filters per check, paused while the tab is hidden |
 
 Search prefixes: `"^name"` starts with, `"=email"` exact, no prefix means contains. Each word has to match at least one field.
 

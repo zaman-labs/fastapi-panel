@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- `live_updates = <seconds>` on a `ModelAdmin` makes its list page check for new rows and show "3 new orders. Refresh". It catches rows written by other services too, since it asks the database
+
 ## [0.3.0] - 2026-11-09
 
 ### Added

@@ -132,6 +132,7 @@ class OrderAdmin(ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("customer__name", "customer__email")
     ordering = ("-created_at",)
+    live_updates = 5
     autocomplete_fields = ("customer",)
     inlines = (OrderItemInline,)
     readonly_fields = ("created_at", "total")

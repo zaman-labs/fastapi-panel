@@ -514,6 +514,29 @@ function formState(form) {
   ).toString();
 }
 
+function setupLiveUpdates() {
+  const notice = $("[data-live-updates]");
+  if (!notice) return;
+  const seen = Number(notice.dataset.total);
+  const url = notice.dataset.countUrl + location.search;
+  // shortcut: compares totals, so a delete and an add in the same interval cancel out; track the newest row if that matters.
+  const timer = setInterval(async () => {
+    if (document.hidden) return;
+    try {
+      const response = await fetch(url, { credentials: "same-origin", redirect: "error" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const added = (await response.json()).total - seen;
+      if (added <= 0) return;
+      const word = added === 1 ? notice.dataset.name : notice.dataset.namePlural;
+      $("[data-live-text]", notice).textContent = `${added} new ${word}.`;
+      notice.hidden = false;
+    } catch {
+      // Logged out, lost access or the server is gone: stop asking rather than retry forever.
+      clearInterval(timer);
+    }
+  }, Number(notice.dataset.liveUpdates) * 1000);
+}
+
 function setupUnsavedWarning() {
   const form = $("[data-change-form]");
   if (!form) return;
@@ -532,6 +555,7 @@ function setupUnsavedWarning() {
 
 setupChrome();
 setupChangelist();
+setupLiveUpdates();
 setupPrepopulate();
 setupAutocomplete();
 setupDualSelects();
