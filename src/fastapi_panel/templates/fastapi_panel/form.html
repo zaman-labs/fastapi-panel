@@ -71,6 +71,7 @@
 
 <form method="post" action="{{ post_url }}" enctype="multipart/form-data" novalidate data-change-form>
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% if form.fingerprint %}<input type="hidden" name="_loaded" value="{{ form.fingerprint }}">{% endif %}
   {% if save_on_top %}{{ submit_row(top=True) }}{% endif %}
 
   {% for error in form.errors %}<div class="message message-error" role="alert">{{ error }}</div>{% endfor %}

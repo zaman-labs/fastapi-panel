@@ -48,6 +48,7 @@ Issues = "https://github.com/zaman-labs/fastapi-panel/issues"
 [dependency-groups]
 dev = [
     "aiosqlite>=0.20",
+    "asyncpg>=0.32.0",
     "httpx>=0.27",
     "pytest>=8",
     "qrcode>=7.4",

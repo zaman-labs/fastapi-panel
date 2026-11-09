@@ -7,6 +7,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ### Added
 
 - `live_updates = <seconds>` on a `ModelAdmin` makes its list page check for new rows and show "3 new orders. Refresh". It catches rows written by other services too, since it asks the database
+- Edit conflicts: saving a record that someone else changed after you opened it stops with a warning instead of overwriting their change. Saving again overwrites on purpose
+- `mount(..., query_timeout=<seconds>)` has PostgreSQL cancel panel queries that run too long, so a heavy filter can't hold up the database the app shares. The page says it took too long
+- **Edit selected** action: set the ticked fields to one value on many records at once, with the form's checks, per-row permissions and a history entry for each. If one fails, nothing is saved. `get_bulk_edit_fields` narrows the fields
+
 ### Security
 
 - File links only work for the staff member they were made for. Before, anyone logged in to the panel could open a link they got hold of, even for a record they couldn't see. Links made before upgrading stop working

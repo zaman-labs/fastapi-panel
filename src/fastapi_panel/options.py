@@ -410,7 +410,7 @@ class ModelAdmin(FormOptions):
 
     # Actions
     actions: Iterable[Any] = ()
-    builtin_actions: Iterable[str] = ("delete_selected", "export_csv")
+    builtin_actions: Iterable[str] = ("edit_selected", "delete_selected", "export_csv")
     action_max_rows = 10_000
     # Buttons on one record's page. Each runs an @action method that takes a single object.
     object_actions: Iterable[str] = ()
@@ -606,12 +606,19 @@ class ModelAdmin(FormOptions):
     def get_import_fields(self, request: Any) -> list[str]:
         if self.import_fields is not None:
             return list(self.import_fields)
+        return self._writable_fields(request, skip=(FileField,))
+
+    def get_bulk_edit_fields(self, request: Any) -> list[str]:
+        """The fields "Edit selected" offers. Passwords and files are left out, they belong to one record."""
+        return self._writable_fields(request, skip=(FileField, PasswordField))
+
+    def _writable_fields(self, request: Any, skip: tuple[type, ...]) -> list[str]:
         readonly = set(self.get_readonly_fields(request))
         names: list[str] = []
         for row in self.get_fields(request):
             names.extend(row if isinstance(row, (tuple, list)) else [row])
         available, _ = self._available_fields()
-        return [name for name in names if name not in readonly and not isinstance(available.get(name), FileField)]
+        return [name for name in names if name not in readonly and not isinstance(available.get(name), skip)]
 
     def can_import(self, request: Any) -> bool:
         return self.csv_import and (self.has_add_permission(request) or self.has_change_permission(request))
@@ -694,6 +701,12 @@ class ModelAdmin(FormOptions):
         from . import views
 
         return views.delete_selected(session, request, self, objects)
+
+    @action("Edit selected", permissions=("change",))
+    def edit_selected(self, session: Any, request: Any, objects: list[Any]) -> Response | None:
+        from . import views
+
+        return views.edit_selected(session, request, self, objects)
 
     @action("Restore selected", permissions=("change",))
     def restore_selected(self, session: Any, request: Any, objects: list[Any]) -> None:

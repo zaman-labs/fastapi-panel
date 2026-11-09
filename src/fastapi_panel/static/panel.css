@@ -485,3 +485,6 @@ details.fieldset:not([open]) > summary { border-bottom: 0; border-radius: var(--
 .delete-blocked { margin-bottom: 14px; padding: 12px 14px; border: 1px solid var(--danger); border-radius: 6px; background: var(--danger-soft); }
 .delete-blocked h2 { margin: 0 0 4px; color: var(--danger); font-size: 15px; }
 .delete-blocked p { margin: 0 0 8px; }
+
+.bulk-field { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+.bulk-toggle { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; margin-bottom: 6px; }

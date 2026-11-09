@@ -5,6 +5,7 @@ import datetime as dt
 import decimal
 import enum
 import functools
+import hashlib
 import json
 import math
 import re
@@ -29,6 +30,7 @@ EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 RELATION_SELECT_LIMIT = 200
 # Records a CSV import looks through for a name. More than one exact match is refused as ambiguous anyway.
 LABEL_SEARCH_LIMIT = 20
+FINGERPRINT_LENGTH = 32
 IMAGE_SIGNATURES: dict[str, Callable[[bytes], bool]] = {
     "png": lambda head: head.startswith(b"\x89PNG\r\n\x1a\n"),
     "jpg": lambda head: head.startswith(b"\xff\xd8\xff"),
@@ -649,6 +651,8 @@ class Form:
         for field in self.editable:
             source = field.read(obj) if persisted else field.initial
             field.value = field.format(source)
+        # The editable values as loaded. The page sends it back, so a save can spot changes made in the meantime.
+        self.fingerprint = _fingerprint([f.value for f in self.editable]) if persisted else ""
 
     @property
     def editable(self) -> list[Field]:
@@ -704,6 +708,10 @@ class Form:
                 changed.append(field.label)
                 self.diffs.append((field, before, after))
         return changed
+
+
+def _fingerprint(values: list[Any]) -> str:
+    return hashlib.sha256(json.dumps(values, default=str).encode()).hexdigest()[:FINGERPRINT_LENGTH]
 
 
 def _same_row(model: type, obj: Any) -> Any:
