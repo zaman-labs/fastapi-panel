@@ -4,7 +4,6 @@
 
 ## Checklist
 
-- [ ] Targets the `develop` branch
 - [ ] Tests added or updated
 - [ ] `uv run ruff format . && uv run ruff check . && uv run pytest` passes
 - [ ] Docs and `CHANGELOG.md` updated if users will notice

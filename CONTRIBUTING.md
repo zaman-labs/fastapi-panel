@@ -29,11 +29,10 @@ uv run --with playwright python scripts/screenshots.py
 
 ## Branches
 
-- `main` is what's released, and always stable.
-- `develop` is where work comes together. Open pull requests against it.
+- `main` is the only long-lived branch and always stable. Open pull requests against it.
 - Name your branch `feature/<name>`, `fix/<name>` or `docs/<name>`.
 
-To release, merge `develop` into `main`, bump the version in `src/fastapi_panel/__init__.py`, update `CHANGELOG.md`, and publish a GitHub release tagged `vX.Y.Z`. That triggers the upload to PyPI.
+To release, commit `chore: release X.Y.Z` on `main` that bumps the version in `src/fastapi_panel/__init__.py` and turns `[Unreleased]` in `CHANGELOG.md` into `[X.Y.Z] - date`. Publish a GitHub release tagged `vX.Y.Z` with that changelog section, then upload to PyPI by running the publish workflow on the tag: `gh workflow run publish.yml --ref vX.Y.Z`.
 
 ## Commits
 
