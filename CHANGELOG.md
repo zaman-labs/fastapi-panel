@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Security
+
+- File links only work for the staff member they were made for. Before, anyone logged in to the panel could open a link they got hold of, even for a record they couldn't see. Links made before upgrading stop working
+
 ## [0.3.0] - 2026-11-09
 
 ### Added

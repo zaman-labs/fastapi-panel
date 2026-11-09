@@ -17,7 +17,7 @@ An admin panel can reach all your data, so its defaults are strict and don't dep
 | Cross-site scripting | Autoescaped templates and the CSP. The audit log and flash messages are escaped too |
 | Clickjacking | `frame-ancestors 'none'` and `X-Frame-Options: DENY`. The one exception is the add form opened by the **+** button, which only the panel itself may frame |
 | Malicious uploads | Names are generated, never taken from the client. Extensions are allowlisted, SVG and HTML are refused, and images are checked against their contents |
-| Uploaded files running as pages | Files come through signed, expiring links behind login, with `nosniff` and a sandboxing CSP. Anything but a plain image downloads instead of opening |
+| Uploaded files running as pages | Files come through signed, expiring links that only work for the staff member they were made for, with `nosniff` and a sandboxing CSP. Anything but a plain image downloads instead of opening |
 | Path traversal | `LocalStorage` refuses any name that resolves outside its folder |
 | SQL injection | All queries go through SQLAlchemy with bound parameters. `LIKE` wildcards are escaped |
 | Mass assignment | Only fields on the form are written. Read-only fields and primary keys are ignored |
@@ -54,7 +54,7 @@ An admin panel can reach all your data, so its defaults are strict and don't dep
 
 - Throttling counters live in the process, so with `N` workers an attacker gets up to `5 × N` attempts per window. Put a shared rate limit in your proxy if that matters.
 - Sessions are stored in the cookie, so a single session can't be revoked from the server. See [Sessions](auth-and-permissions.md#sessions).
-- A file link works for any logged-in user who has it until it expires, even if that user can't see the record. Links are only given to people who can.
+- A file link keeps working for the person it was made for until it expires, even if they lose access to the record in the meantime.
 - `FileField` doesn't look inside non-image files, so don't treat downloads as safe to open. Scan them yourself if strangers can upload.
 - Authenticator secrets are stored unencrypted in `fastapi_panel_two_factor`, as with most TOTP setups. Anyone who can read that table can generate codes, though they still need the password.
 - Audit entries are only written for changes made through the panel, not for direct database changes.

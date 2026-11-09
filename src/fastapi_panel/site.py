@@ -687,13 +687,20 @@ class AdminSite:
         return result.rowcount == 1
 
     def file_url(self, request: Request, name: str) -> str:
-        # Links are minted for someone who may see the record, and only work with a logged-in session.
-        token = self.file_signer.dumps({"name": name, "exp": time.time() + self.session_age})
+        # Links are minted for someone who may see the record, and only work in that person's own session,
+        # so a link that leaks into chat or logs is no use to other staff who can't see the record.
+        uid = request.state.session.get("uid")
+        token = self.file_signer.dumps({"name": name, "uid": uid, "exp": time.time() + self.session_age})
         return f"{request.scope['root_path']}/files/{token}"
 
     def _serve_file(self, session: Any, request: Request) -> Response:
         payload = self.file_signer.loads(request.path_params["token"])
-        if not isinstance(payload, dict) or payload.get("exp", 0) < time.time() or not self.storage:
+        if (
+            not isinstance(payload, dict)
+            or payload.get("exp", 0) < time.time()
+            or payload.get("uid") != request.state.session.get("uid")
+            or not self.storage
+        ):
             raise HTTPException(404, "This file doesn't exist.")
         name = str(payload.get("name", ""))
         try:
